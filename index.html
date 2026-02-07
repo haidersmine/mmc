@@ -79,7 +79,7 @@
         .cyber-glass { background: white !important; border: none !important; box-shadow: none !important; }
         .print-force-visible { display: block !important; }
         .print-table { border: 2px solid black !important; border-collapse: collapse !important; width: 100% !important; margin-top: 10px; }
-        .print-table th, .print-table td { border: 1px solid black !important; padding: 6px !important; color: black !important; font-size: 10px !important; text-align: left; }
+        .print-table th, .print-table td { border: 1px solid black !important; padding: 6px !important; color: black !important; font-size: 8px !important; text-align: left; }
       }
 
       .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -97,7 +97,11 @@
       .light .bright-text { color: #0f172a !important; }
       
       .dark .bright-label { color: rgba(255, 255, 255, 0.8) !important; }
-      .light .bright-label { color: rgba(15, 23, 42, 0.7) !important; }
+      .light .bright-label { color: rgba(15, 23, 42, 0.9) !important; }
+
+      /* Light Mode Ledger Item Contrast */
+      .light .ledger-item { background: #ffffff !important; border-color: #d1d5db !important; }
+      .light .ledger-item-text { color: #0f172a !important; }
     </style>
     <script type="importmap">
     {
@@ -124,7 +128,6 @@
         Hash, MapPin, Receipt, Search, CheckSquare, Square, X, Calendar, ClipboardCheck, AlertTriangle
       } from 'lucide-react';
 
-      // --- CRITICAL CONSTANTS ---
       const DEFAULT_BALANCES = {
         "jazzLoad": 0, "zongLoad": 0, "telenorLoad": 0, "nadra": 0, "meezan1": 0, "meezan2": 0,
         "ubl": 0, "jazzBusiness": 0, "jazzCash": 0, "easyPaisa": 0, "mashrek": 0, "profit": 0, "cashInHands": 0
@@ -179,8 +182,6 @@
         [MyWallet.CASH_IN_HANDS]: 'cashInHands',
       };
 
-      // --- COMPONENTS ---
-
       const Dashboard = ({ balances, profit, theme }) => {
         const isDark = theme === 'dark';
         const formatPKR = (val) => `Rs. ${val.toLocaleString()}`;
@@ -230,7 +231,7 @@
                       React.createElement('div', { className: "p-2 rounded-lg bg-black/10" },
                         React.createElement(item.icon, { className: `w-4 h-4 ${isMain ? '' : (item.iconColor || 'text-cyber')}` })
                       ),
-                      React.createElement('span', { className: `text-[8px] font-black uppercase tracking-widest bright-label opacity-80` }, item.label)
+                      React.createElement('span', { className: `text-[8px] font-black uppercase tracking-widest bright-label` }, item.label)
                     ),
                     React.createElement('div', { className: `text-xl md:text-2xl font-black tracking-tight bright-text` }, formatPKR(item.value))
                   )
@@ -243,7 +244,7 @@
 
       const WizardProgress = ({ currentStep, totalSteps, isDark }) => (
         React.createElement('div', { className: "mb-8 space-y-2" },
-          React.createElement('div', { className: "flex justify-between text-[10px] font-black uppercase tracking-widest bright-label opacity-80" },
+          React.createElement('div', { className: "flex justify-between text-[10px] font-black uppercase tracking-widest bright-label" },
             React.createElement('span', null, `STEP ${currentStep + 1} OF ${totalSteps}`),
             React.createElement('span', null, `${Math.round(((currentStep + 1) / totalSteps) * 100)}% COMPLETE`)
           ),
@@ -264,7 +265,7 @@
              Object.entries(selections).filter(([_, v]) => !!v).map(([k, v], i, arr) => (
                 React.createElement(React.Fragment, { key: k },
                   React.createElement('div', { className: "flex flex-col min-w-max" },
-                    React.createElement('span', { className: "text-[8px] font-black bright-label opacity-80 uppercase tracking-widest" }, k),
+                    React.createElement('span', { className: "text-[8px] font-black bright-label uppercase tracking-widest" }, k),
                     React.createElement('span', { className: `text-sm font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-cyan-950'}` }, v)
                   ),
                   i < arr.length - 1 && React.createElement(ChevronRight, { className: `w-4 h-4 opacity-30 flex-shrink-0 ${isDark ? 'text-white' : 'text-cyan-950'}` })
@@ -374,7 +375,7 @@
         return React.createElement('div', { className: `p-6 md:p-10 cyber-glass rounded-[2.5rem] border-2 shadow-2xl relative overflow-hidden transition-all duration-500 no-print min-h-[500px] flex flex-col` },
           step === 0 && React.createElement('div', { className: "animate-slide-in flex-1" },
             React.createElement('div', { className: "mb-10" },
-              React.createElement('span', { className: `text-[10px] font-black uppercase tracking-[0.4em] bright-label opacity-80 mb-2 block` }, "COMMAND CENTER ENGINE"),
+              React.createElement('span', { className: `text-[10px] font-black uppercase tracking-[0.4em] bright-label mb-2 block` }, "COMMAND CENTER ENGINE"),
               React.createElement('h3', { className: `text-4xl md:text-7xl font-black italic uppercase tracking-tighter leading-none ${isDark ? 'text-white' : 'text-slate-900'}` }, "SELECT ", React.createElement('span', { className: "text-cyber" }, "FLOW"))
             ),
             React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-4" },
@@ -420,7 +421,7 @@
           
           step === 2 && React.createElement(StepWrapper, { title: "TARGET", step, totalSteps: 5, isDark, onNext: () => (targetAccount || destinationWallet || (type === TransactionType.LOAD && sourceWallet)) && moveNext(), onBack: () => setStep(1), selections: { Flow: type === TransactionType.LOAD ? `${type} (${loadMode})` : type, Source: sourceWallet } },
             type === TransactionType.STOCK_BUY ? React.createElement('div', { className: "grid grid-cols-2 gap-4" },
-              [MyWallet.JAZ_LOAD, MyWallet.ZONG_LOAD, MyWallet.TELENOR_LOAD].map((w) => React.createElement(ChoiceButton, { key: w, label: w, value: w, current: destinationWallet, onClick: (v) => { setDestinationWallet(v); setTimeout(moveNext, 200); } }))
+              [MyWallet.JAZZ_LOAD, MyWallet.ZONG_LOAD, MyWallet.TELENOR_LOAD].map((w) => React.createElement(ChoiceButton, { key: w, label: w, value: w, current: destinationWallet, onClick: (v) => { setDestinationWallet(v); setTimeout(moveNext, 200); } }))
             ) : type === TransactionType.LOAD ? React.createElement('div', { className: "grid grid-cols-2 gap-4" },
               [MyWallet.JAZZ_LOAD, MyWallet.ZONG_LOAD, MyWallet.TELENOR_LOAD, MyWallet.UFONE_LOAD].map((w) => React.createElement(ChoiceButton, { key: w, label: w, value: w, current: sourceWallet, onClick: (v) => { setSourceWallet(v); setTimeout(moveNext, 200); } }))
             ) : React.createElement('div', { className: "space-y-6" },
@@ -439,15 +440,15 @@
           step === 3 && React.createElement(StepWrapper, { title: "DETAILS", step, totalSteps: 5, isDark, onNext: () => amount && moveNext(), onBack: () => setStep(2), selections: { Flow: type === TransactionType.LOAD ? loadMode : type, Source: sourceWallet, Target: targetAccount || destinationWallet } },
             React.createElement('div', { className: "space-y-10" },
               (type === TransactionType.SENDING || type === TransactionType.RECEIVING) && React.createElement('div', null,
-                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] bright-label opacity-80 mb-2 block" }, "CLIENT NAME"),
+                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] bright-label mb-2 block" }, "CLIENT NAME"),
                 React.createElement('input', { type: "text", value: name, onChange: (e) => setName(e.target.value), placeholder: "FULL NAME", className: `w-full massive-input bg-transparent border-b-8 outline-none transition-all uppercase py-2 focus:border-cyber ${isDark ? 'border-white/20 text-white' : 'border-slate-300 text-slate-900'}` })
               ),
               (type === TransactionType.SENDING || type === TransactionType.LOAD) && React.createElement('div', null,
-                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] bright-label opacity-80 mb-2 block" }, "MOBILE ID"),
+                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] bright-label mb-2 block" }, "MOBILE ID"),
                 React.createElement('input', { type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "03XXXXXXXXX", className: `w-full massive-input bg-transparent border-b-8 outline-none transition-all py-2 focus:border-cyber ${isDark ? 'border-white/20 text-white' : 'border-slate-300 text-slate-900'}` })
               ),
               React.createElement('div', null,
-                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] bright-label opacity-80 mb-2 block" }, "AMOUNT (RS)"),
+                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] bright-label mb-2 block" }, "AMOUNT (RS)"),
                 React.createElement('input', { type: "number", value: amount, onFocus: (e) => e.target.select(), onChange: (e) => setAmount(e.target.value), placeholder: "0.00", className: `w-full massive-input bg-transparent border-b-8 outline-none transition-all py-2 focus:border-cyber ${isDark ? 'border-white/20 text-cyber' : 'border-slate-300 text-cyan-700'}` })
               )
             )
@@ -486,7 +487,7 @@
                     React.createElement(ClipboardCheck, { className: "w-8 h-8 text-cyber" }),
                     React.createElement('div', { className: "flex flex-col" },
                       React.createElement('span', { className: `text-xl font-black uppercase tracking-tighter ${isDark ? 'text-white' : 'text-slate-900'}` }, "FINAL AUDIT"),
-                      React.createElement('span', { className: "text-[8px] font-black bright-label opacity-60 uppercase tracking-[0.2em]" }, "VAULT COMMITTAL PENDING")
+                      React.createElement('span', { className: "text-[8px] font-black bright-label uppercase tracking-[0.2em]" }, "VAULT COMMITTAL PENDING")
                     )
                   )
                 ),
@@ -499,19 +500,19 @@
                   ].map((item, idx) => React.createElement('div', { key: idx, className: "flex items-start gap-3" },
                     React.createElement(item.icon, { className: "w-4 h-4 text-cyber opacity-60 mt-1" }),
                     React.createElement('div', { className: "flex flex-col" },
-                      React.createElement('span', { className: "text-[8px] font-black bright-label opacity-60 uppercase" }, item.label),
+                      React.createElement('span', { className: "text-[8px] font-black bright-label uppercase" }, item.label),
                       React.createElement('span', { className: `text-base font-black uppercase truncate ${isDark ? 'text-white' : 'text-slate-800'}` }, item.value)
                     )
                   ))
                 ),
                 React.createElement('div', { className: `mt-2 p-6 rounded-[1.5rem] text-center ${isDark ? 'bg-cyber/10' : 'bg-slate-50 border border-slate-200'}` },
-                  React.createElement('span', { className: "text-[10px] font-black bright-label opacity-80 uppercase" }, "TOTAL PAYOUT"),
+                  React.createElement('span', { className: "text-[10px] font-black bright-label uppercase" }, "TOTAL PAYOUT"),
                   React.createElement('div', { className: `text-5xl md:text-6xl font-black ${isDark ? 'text-cyber' : 'text-cyan-900'}` }, `Rs. ${Number(amount).toLocaleString()}`)
                 )
               ),
               React.createElement('div', { className: `p-3 px-8 rounded-2xl border-2 flex items-center justify-between shadow-lg ${isDark ? 'bg-white/5 border-white/20' : 'bg-slate-100 border-slate-300'}` },
                 React.createElement('div', { className: "flex items-center gap-6" },
-                  React.createElement('span', { className: "text-[10px] font-black bright-label opacity-80 uppercase tracking-widest" }, "SERVICE FEE"),
+                  React.createElement('span', { className: "text-[10px] font-black bright-label uppercase tracking-widest" }, "SERVICE FEE"),
                   React.createElement('div', { className: "flex items-center gap-4" },
                     React.createElement('input', { type: "number", value: fee, onFocus: (e) => e.target.select(), onChange: (e) => { setIsAutoFee(false); setFee(Number(e.target.value)); }, className: `bg-transparent font-black text-3xl w-24 outline-none ${isDark ? 'text-cyber' : 'text-cyan-900'}` }),
                     React.createElement('button', { type: "button", onClick: () => setIsAutoFee(!isAutoFee), className: `text-[10px] font-black px-4 py-2 rounded-full transition-all active:scale-90 ${isDark ? 'bg-cyber text-obsidian' : 'bg-cyan-600 text-white'}` }, isAutoFee ? 'AUTO-ON' : 'MANUAL')
@@ -600,7 +601,7 @@
             ),
             React.createElement('div', { className: "space-y-4" },
               React.createElement('div', { className: "relative" },
-                React.createElement('div', { className: "absolute left-6 top-1/2 -translate-y-1/2 bright-label opacity-60" }, React.createElement(Search, { className: "w-6 h-6" })),
+                React.createElement('div', { className: "absolute left-6 top-1/2 -translate-y-1/2 bright-label" }, React.createElement(Search, { className: "w-6 h-6" })),
                 React.createElement('input', { type: "text", placeholder: "SEARCH NAME, PHONE, OR RS AMOUNT...", value: searchQuery, onChange: (e) => setSearchQuery(e.target.value), className: `w-full p-5 pl-16 rounded-[1.5rem] border-2 font-black outline-none ${isDark ? 'bg-white/5 text-white border-white/10 focus:border-cyber' : 'bg-slate-50 border-slate-300'}` }),
                 searchQuery && React.createElement('button', { onClick: () => setSearchQuery(''), className: "absolute right-6 top-1/2 -translate-y-1/2 text-cyber" }, React.createElement(X, { className: "w-6 h-6" }))
               ),
@@ -616,21 +617,21 @@
                   React.createElement('button', { type: "button", onClick: toggleAll, className: `p-2 rounded-xl transition-all ${selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0 ? 'bg-cyber' : 'bg-white/10 border-2 border-white/20'}` },
                     selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0 ? React.createElement(CheckSquare, { className: "w-6 h-6 text-obsidian" }) : React.createElement(Square, { className: "w-6 h-6 opacity-60 text-white" })
                   ),
-                  React.createElement('span', { className: "text-[10px] font-black uppercase tracking-[0.3em] bright-label opacity-80" }, `VAULT SELECTION: ${selectedIds.size} / ${filteredTransactions.length}`)
+                  React.createElement('span', { className: "text-[10px] font-black uppercase tracking-[0.3em] bright-label" }, `VAULT SELECTION: ${selectedIds.size} / ${filteredTransactions.length}`)
                 ),
-                filteredTransactions.map((tx) => React.createElement('div', { key: tx.id, className: `p-6 border-2 rounded-[2rem] flex flex-col gap-4 transition-all ${selectedIds.has(tx.id) ? (isDark ? 'bg-cyber/10 border-cyber shadow-lg' : 'bg-cyan-50 border-cyan-400 shadow-md') : 'bg-white/5 border-white/10'}` },
+                filteredTransactions.map((tx) => React.createElement('div', { key: tx.id, className: `p-6 border-2 rounded-[2rem] flex flex-col gap-4 transition-all shadow-sm ledger-item ${selectedIds.has(tx.id) ? (isDark ? 'bg-cyber/10 border-cyber shadow-lg' : 'bg-cyan-50 border-cyan-400 shadow-md') : (isDark ? 'bg-white/5 border-white/10' : 'bg-white border-slate-300')}` },
                   editingId === tx.id ? React.createElement('div', { className: "space-y-4 animate-slide-in p-2" },
                     React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
                       React.createElement('div', null,
-                        React.createElement('label', { className: "text-[8px] font-black uppercase bright-label opacity-80 block mb-1" }, "EDIT NAME"),
+                        React.createElement('label', { className: "text-[8px] font-black uppercase bright-label block mb-1" }, "EDIT NAME"),
                         React.createElement('input', { type: "text", value: editName, onChange: (e) => setEditName(e.target.value), className: `w-full p-2 rounded bg-black/40 font-black text-white text-sm outline-none border border-white/20 focus:border-cyber` })
                       ),
                       React.createElement('div', null,
-                        React.createElement('label', { className: "text-[8px] font-black uppercase bright-label opacity-80 block mb-1" }, "EDIT AMOUNT"),
+                        React.createElement('label', { className: "text-[8px] font-black uppercase bright-label block mb-1" }, "EDIT AMOUNT"),
                         React.createElement('input', { type: "number", value: editAmount, onChange: (e) => setEditAmount(e.target.value), className: `w-full p-2 rounded bg-black/40 font-black text-white text-sm outline-none border border-white/20 focus:border-cyber` })
                       ),
                       React.createElement('div', null,
-                        React.createElement('label', { className: "text-[8px] font-black uppercase bright-label opacity-80 block mb-1" }, "EDIT FEE"),
+                        React.createElement('label', { className: "text-[8px] font-black uppercase bright-label block mb-1" }, "EDIT FEE"),
                         React.createElement('input', { type: "number", value: editFee, onChange: (e) => setEditFee(e.target.value), className: `w-full p-2 rounded bg-black/40 font-black text-white text-sm outline-none border border-white/20 focus:border-cyber` })
                       )
                     ),
@@ -642,18 +643,18 @@
                   React.createElement('div', { className: "flex flex-col md:flex-row justify-between items-start md:items-center gap-6" },
                     React.createElement('div', { className: "flex items-center gap-6 w-full md:w-auto" },
                       React.createElement('button', { type: "button", onClick: () => toggleSelection(tx.id) },
-                        selectedIds.has(tx.id) ? React.createElement(CheckCircle2, { className: "w-8 h-8 text-cyber" }) : React.createElement('div', { className: "w-8 h-8 rounded-full border-4 border-white/20 transition-colors hover:border-white/40" })
+                        selectedIds.has(tx.id) ? React.createElement(CheckCircle2, { className: "w-8 h-8 text-cyber" }) : React.createElement('div', { className: `w-8 h-8 rounded-full border-4 ${isDark ? 'border-white/20' : 'border-slate-400'} transition-colors hover:border-cyber/40` })
                       ),
                       React.createElement('div', null,
-                        React.createElement('div', { className: `text-xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}` }, tx.customerName || 'WALK-IN'),
-                        React.createElement('div', { className: "text-[10px] bright-label opacity-60 uppercase tracking-widest font-black flex items-center gap-2" }, React.createElement(Calendar, { className: "w-3 h-3" }), `${formatDate(tx.timestamp)} • ${formatTime(tx.timestamp)}`),
+                        React.createElement('div', { className: `text-xl font-black uppercase tracking-tight ledger-item-text ${isDark ? 'text-white' : 'text-slate-900'}` }, tx.customerName || 'WALK-IN'),
+                        React.createElement('div', { className: "text-[10px] bright-label uppercase tracking-widest font-black flex items-center gap-2" }, React.createElement(Calendar, { className: "w-3 h-3" }), `${formatDate(tx.timestamp)} • ${formatTime(tx.timestamp)}`),
                         React.createElement('div', { className: "text-[10px] text-cyber font-black uppercase tracking-widest mt-1" }, `${tx.type} • ${tx.phoneNumber || 'N/A'}`)
                       )
                     ),
                     React.createElement('div', { className: "flex items-center justify-between w-full md:w-auto gap-6" },
                       React.createElement('div', { className: "text-left md:text-right" },
-                        React.createElement('div', { className: `text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}` }, `Rs. ${tx.amount.toLocaleString()}`),
-                        React.createElement('div', { className: "text-[10px] font-black bright-label opacity-60 uppercase tracking-widest" }, `${tx.sourceWallet} • FEE: ${tx.fee}`)
+                        React.createElement('div', { className: `text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}` }, `Rs. ${tx.amount.toLocaleString()}`),
+                        React.createElement('div', { className: "text-[10px] font-black bright-label uppercase tracking-widest" }, `${tx.sourceWallet} • FEE: ${tx.fee}`)
                       ),
                       React.createElement('div', { className: "flex gap-1" },
                         React.createElement('button', { type: "button", onClick: () => startEdit(tx), className: "p-3 text-cyber hover:bg-white/10 rounded-xl transition-colors" }, React.createElement(Edit2, { className: "w-5 h-5" })),
@@ -667,8 +668,16 @@
           React.createElement('div', { className: "hidden print:block print-force-visible px-4 py-6" },
             React.createElement('div', { className: "text-center mb-6 pb-4 border-b-2 border-black" }, React.createElement('h1', { className: "text-2xl font-black uppercase" }, "MUGHAL VAULT ARCHIVE")),
             React.createElement('table', { className: "print-table" },
-              React.createElement('thead', null, React.createElement('tr', null, ['TIMESTAMP', 'TYPE', 'CLIENT', 'MOBILE ID', 'AMOUNT', 'FEE'].map(h => React.createElement('th', { key: h }, h)))),
-              React.createElement('tbody', null, (selectedIds.size > 0 ? transactions.filter(t => selectedIds.has(t.id)) : filteredTransactions).map(tx => React.createElement('tr', { key: tx.id }, React.createElement('td', null, formatDate(tx.timestamp) + ' ' + formatTime(tx.timestamp)), React.createElement('td', null, tx.type), React.createElement('td', null, tx.customerName || 'WALK-IN'), React.createElement('td', null, tx.phoneNumber || 'N/A'), React.createElement('td', null, `${tx.amount.toLocaleString()}`), React.createElement('td', null, tx.fee))))
+              React.createElement('thead', null, React.createElement('tr', null, ['TIMESTAMP', 'TYPE', 'SOURCE', 'TARGET', 'CLIENT', 'MOBILE ID', 'AMOUNT', 'FEE'].map(h => React.createElement('th', { key: h, className: "text-[8px]" }, h)))),
+              React.createElement('tbody', null, (selectedIds.size > 0 ? transactions.filter(t => selectedIds.has(t.id)) : filteredTransactions).map(tx => React.createElement('tr', { key: tx.id }, 
+                React.createElement('td', null, formatDate(tx.timestamp) + ' ' + formatTime(tx.timestamp)), 
+                React.createElement('td', null, tx.type), 
+                React.createElement('td', null, tx.sourceWallet),
+                React.createElement('td', null, tx.targetAccountType || tx.destinationWallet || 'N/A'),
+                React.createElement('td', null, tx.customerName || 'WALK-IN'), 
+                React.createElement('td', null, tx.phoneNumber || 'N/A'), 
+                React.createElement('td', null, `${tx.amount.toLocaleString()}`), 
+                React.createElement('td', null, tx.fee))))
             )
           )
         );
@@ -691,7 +700,7 @@
             React.createElement('h2', { className: `text-3xl font-black uppercase mb-10 ${isDark ? 'text-white' : 'text-slate-900'}` }, "CALIBRATION"),
             React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" },
               fields.map((f) => React.createElement('div', { key: f.key, className: "space-y-1" },
-                React.createElement('label', { className: `text-[10px] font-black uppercase tracking-widest bright-label opacity-80` }, f.label),
+                React.createElement('label', { className: `text-[10px] font-black uppercase tracking-widest bright-label` }, f.label),
                 React.createElement('input', { type: "number", value: openingBalances[f.key] || 0, onFocus: (e) => e.target.select(), onChange: (e) => setOpeningBalances({ ...openingBalances, [f.key]: Number(e.target.value) || 0 }), className: `w-full p-5 rounded-2xl border-2 border-white/10 font-black transition-all outline-none ${isDark ? 'bg-slate-900 text-white focus:border-cyber' : 'bg-white border-slate-300 text-slate-900 shadow-inner'}` })
               ))
             )
