@@ -1,0 +1,731 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mughal POS - Nexus Core</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              obsidian: '#02040a',
+              cyber: '#00f2ff',
+              hyper: '#7000ff',
+              neon: '#ff007a'
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'slide-in': 'slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            },
+            keyframes: {
+              slideIn: {
+                '0%': { transform: 'translateY(15px)', opacity: 0 },
+                '100%': { transform: 'translateY(0)', opacity: 1 },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+      
+      body {
+        font-family: 'Outfit', sans-serif;
+        overflow-x: hidden;
+        margin: 0;
+        padding: 0;
+      }
+
+      body.dark { background-color: #02040a; color: #f8fafc; }
+      body.light { background-color: #f3f4f6; color: #0f172a; }
+
+      .cyber-glass { transition: all 0.3s ease; }
+      .dark .cyber-glass {
+        background: rgba(10, 13, 23, 0.8);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(0, 242, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+      }
+      .light .cyber-glass {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      .massive-input {
+        font-size: clamp(1.2rem, 5vw, 2.8rem) !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.04em !important;
+      }
+
+      .custom-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300f2ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1.2rem center;
+        background-size: 1.5em;
+      }
+
+      @media print {
+        header, nav, .no-print, button, input, select { display: none !important; }
+        body, #root { background: white !important; color: black !important; }
+        .cyber-glass { background: white !important; border: none !important; box-shadow: none !important; }
+        .print-force-visible { display: block !important; }
+        .print-table { border: 2px solid black !important; border-collapse: collapse !important; width: 100% !important; margin-top: 10px; }
+        .print-table th, .print-table td { border: 1px solid black !important; padding: 6px !important; color: black !important; font-size: 10px !important; text-align: left; }
+      }
+
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+      .wizard-step {
+        transition: all 0.5s ease;
+      }
+      .wizard-step.active {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      .wizard-step.inactive {
+        opacity: 0;
+        display: none;
+      }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+      }
+    }
+    </script>
+  </head>
+  <body class="selection:bg-cyber selection:text-obsidian dark">
+    <div id="root"></div>
+
+    <script type="module">
+      import React, { useState, useEffect, useMemo, useCallback } from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { 
+        LayoutDashboard, History, Moon, Sun, Zap, Send, Download, 
+        CreditCard, ArrowRight, ArrowLeft, User, Phone, Trash2, 
+        Printer, Smartphone, Coins, TrendingUp, ShieldCheck, 
+        Briefcase, Signal, ChevronRight, CheckCircle2, Settings as SettingsIcon,
+        Hash, MapPin, Receipt, Search, CheckSquare, Square, X, Calendar, ClipboardCheck
+      } from 'lucide-react';
+
+      // --- CRITICAL CONSTANTS ---
+      const DEFAULT_BALANCES = {
+        "jazzLoad": 0, "zongLoad": 0, "telenorLoad": 0, "nadra": 0, "meezan1": 0, "meezan2": 0,
+        "ubl": 0, "jazzBusiness": 0, "jazzCash": 0, "easyPaisa": 0, "mashrek": 0, "profit": 0, "cashInHands": 0
+      };
+
+      const TransactionType = {
+        SENDING: 'Sending',
+        RECEIVING: 'Receiving',
+        LOAD: 'Balance/Package',
+        STOCK_BUY: 'Stock Buy'
+      };
+
+      const LoadType = { LOAD: 'LOAD', PACKAGE: 'PACKAGE' };
+
+      const MyWallet = {
+        JAZZ_LOAD: 'JAZZ LOAD', 
+        ZONG_LOAD: 'ZONG LOAD', 
+        TELENOR_LOAD: 'TELENOR LOAD', 
+        UFONE_LOAD: 'UFONE LOAD',
+        NADRA: 'NADRA', 
+        MEEZAN_1: 'MEEZAN BANK 1', 
+        MEEZAN_2: 'MEEZAN BANK 2', 
+        UBL: 'UBL',
+        JAZ_BUSINESS: 'JAZZ BUSINESS', 
+        JAZZCASH: 'JAZZCASH', 
+        EASYPAISA: 'EASYPAISA',
+        MASHREK: 'MASHREK', 
+        PROFIT: 'PROFIT', 
+        CASH_IN_HANDS: 'CASH IN HANDS'
+      };
+
+      const CustomerAccountType = {
+        JAZZCASH: 'JAZZCASH', EASYPAISA: 'EASYPAISA', SADAPAY: 'SADAPAY', NAYAPAY: 'NAYAPAY',
+        HBL: 'HBL', BANK_ALFALAH: 'BANK ALFALAH', ALLIED_BANK: 'ALLIED BANK', MCB: 'MCB',
+        FAYSAL_BANK: 'FAYSAL BANK', UBL: 'UBL', OTHER: 'OTHER'
+      };
+
+      const StatusCircle = ({ className }) => React.createElement('div', { 
+        className: `rounded-full border-4 flex items-center justify-center ${className}`, 
+        style: { width: '32px', height: '32px' } 
+      });
+
+      // --- COMPONENTS ---
+
+      const Dashboard = ({ balances, profit, theme }) => {
+        const isDark = theme === 'dark';
+        const formatPKR = (val) => `Rs. ${val.toLocaleString()}`;
+
+        const groups = [
+          {
+            title: 'PRIMARY STORAGE',
+            items: [
+              { label: 'CASH ON HAND', value: balances.cashInHands, icon: Coins, color: isDark ? 'from-cyber to-blue-500' : 'from-cyan-400 to-blue-500' },
+              { label: 'DAILY YIELD', value: profit, icon: TrendingUp, color: isDark ? 'from-hyper to-purple-800' : 'from-indigo-500 to-purple-700' },
+            ]
+          },
+          {
+            title: 'BANKING NODES',
+            items: [
+              { label: 'JAZZCASH', value: balances.jazzCash, icon: Smartphone, iconColor: isDark ? "text-red-500" : "text-red-600" },
+              { label: 'EASYPAISA', value: balances.easyPaisa, icon: Smartphone, iconColor: isDark ? "text-emerald-500" : "text-emerald-600" },
+              { label: 'BANK 01', value: balances.meezan1, icon: ShieldCheck, iconColor: isDark ? "text-cyan-400" : "text-cyan-600" },
+              { label: 'JAZZ BIZ', value: balances.jazzBusiness, icon: Briefcase, iconColor: isDark ? "text-amber-500" : "text-amber-600" },
+            ]
+          },
+          {
+            title: 'TELECOM STOCK',
+            items: [
+              { label: 'JAZZ LOAD', value: balances.jazzLoad, icon: Signal, iconColor: isDark ? "text-orange-400" : "text-orange-600" },
+              { label: 'ZONG LOAD', value: balances.zongLoad, icon: Signal, iconColor: isDark ? "text-green-400" : "text-green-600" },
+              { label: 'TELENOR LOAD', value: balances.telenorLoad, icon: Signal, iconColor: isDark ? "text-blue-400" : "text-blue-600" },
+            ]
+          }
+        ];
+
+        return React.createElement('div', { className: "space-y-6 pb-24 md:pb-0 no-print" },
+          groups.map((group, gIdx) => React.createElement('div', { key: gIdx, className: "space-y-2" },
+            React.createElement('div', { className: "flex items-center gap-3 px-1" },
+              React.createElement('span', { className: `text-[9px] font-black uppercase tracking-[0.4em] whitespace-nowrap ${isDark ? 'text-cyber' : 'text-slate-500'}` }, group.title),
+              React.createElement('div', { className: `h-[1px] w-full ${isDark ? 'bg-white/10' : 'bg-slate-200'}` })
+            ),
+            React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
+              group.items.map((item, i) => {
+                const isMain = group.title === 'PRIMARY STORAGE';
+                return React.createElement('div', {
+                  key: i,
+                  className: `relative p-4 rounded-2xl border transition-all duration-300 hover:shadow-md ${isMain ? `bg-gradient-to-br ${item.color} ${isDark ? 'text-obsidian' : 'text-white'} border-transparent` : (isDark ? 'cyber-glass border-white/5 hover:border-cyber/30' : 'bg-white border-slate-200 text-slate-900')}`
+                },
+                  React.createElement('div', { className: "flex flex-col gap-2 relative z-10" },
+                    React.createElement('div', { className: "flex items-center justify-between" },
+                      React.createElement('div', { className: "p-2 rounded-lg bg-black/10" },
+                        React.createElement(item.icon, { className: `w-4 h-4 ${isMain ? '' : (item.iconColor || 'text-cyber')}` })
+                      ),
+                      React.createElement('span', { className: `text-[8px] font-black uppercase tracking-widest opacity-70` }, item.label)
+                    ),
+                    React.createElement('div', { className: `text-base md:text-lg font-black tracking-tight` }, formatPKR(item.value))
+                  )
+                );
+              })
+            )
+          ))
+        );
+      };
+
+      const WizardProgress = ({ currentStep, totalSteps, isDark }) => (
+        React.createElement('div', { className: "mb-8 space-y-2" },
+          React.createElement('div', { className: "flex justify-between text-[10px] font-black uppercase tracking-widest opacity-60" },
+            React.createElement('span', null, `STEP ${currentStep + 1} OF ${totalSteps}`),
+            React.createElement('span', null, `${Math.round(((currentStep + 1) / totalSteps) * 100)}% COMPLETE`)
+          ),
+          React.createElement('div', { className: `h-1.5 w-full rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-200'}` },
+            React.createElement('div', { 
+              className: `h-full transition-all duration-500 ease-out ${isDark ? 'bg-cyber shadow-[0_0_12px_#00f2ff]' : 'bg-cyan-600'}`, 
+              style: { width: `${((currentStep + 1) / totalSteps) * 100}%` } 
+            })
+          )
+        )
+      );
+
+      const StepWrapper = ({ title, children, step, totalSteps, isDark, onNext, onBack, selections }) => (
+        React.createElement('div', { className: "animate-slide-in no-print space-y-6" },
+          React.createElement(WizardProgress, { currentStep: step, totalSteps, isDark }),
+          
+          selections && React.createElement('div', { className: `p-4 px-6 rounded-[1.5rem] border-2 flex items-center gap-6 overflow-x-auto no-scrollbar shadow-xl ${isDark ? 'bg-cyber/10 border-cyber/20 text-white' : 'bg-cyan-50 border-cyan-200 text-cyan-900'}` },
+             Object.entries(selections).filter(([_, v]) => !!v).map(([k, v], i, arr) => (
+                React.createElement(React.Fragment, { key: k },
+                  React.createElement('div', { className: "flex flex-col min-w-max" },
+                    React.createElement('span', { className: "text-[8px] font-black opacity-40 uppercase tracking-widest" }, k),
+                    React.createElement('span', { className: "text-sm font-black uppercase tracking-tight" }, v)
+                  ),
+                  i < arr.length - 1 && React.createElement(ChevronRight, { className: "w-4 h-4 opacity-30 flex-shrink-0" })
+                )
+              ))
+          ),
+          
+          React.createElement('div', null,
+            React.createElement('h3', { className: `text-2xl md:text-5xl font-black italic uppercase tracking-tighter mb-6 ${isDark ? 'text-white' : 'text-slate-900'}` }, title),
+            children
+          ),
+          
+          React.createElement('div', { className: "mt-8 flex gap-4" },
+            React.createElement('button', { type: "button", onClick: onBack, className: `flex-1 p-4 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all active:scale-95 ${isDark ? 'bg-white/5 text-slate-400 border border-white/5' : 'bg-slate-100 text-slate-600 border border-slate-200'}` }, React.createElement(ArrowLeft, { className: "w-4 h-4" }), "PREVIOUS"),
+            React.createElement('button', { type: "button", onClick: onNext, className: `flex-[2] p-4 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xl ${isDark ? 'bg-cyber text-obsidian shadow-cyber/20' : 'bg-cyan-600 text-white shadow-cyan-200'}` }, "CONTINUE", React.createElement(ArrowRight, { className: "w-4 h-4" }))
+          )
+        )
+      );
+
+      const TransactionForm = ({ onAdd, theme }) => {
+        const [step, setStep] = useState(0);
+        const [type, setType] = useState("");
+        const [loadMode, setLoadMode] = useState(""); 
+        const [sourceWallet, setSourceWallet] = useState("");
+        const [targetAccount, setTargetAccount] = useState("");
+        const [destinationWallet, setDestinationWallet] = useState("");
+        const [amount, setAmount] = useState('');
+        const [phone, setPhone] = useState('');
+        const [name, setName] = useState('');
+        const [fee, setFee] = useState(0);
+        const [isAutoFee, setIsAutoFee] = useState(true);
+
+        const isDark = theme === 'dark';
+
+        const resetFormState = () => {
+          setStep(0); setType(""); setLoadMode(""); setSourceWallet(""); setTargetAccount(""); setDestinationWallet("");
+          setAmount(''); setPhone(''); setName(''); setIsAutoFee(true); setFee(0);
+        };
+
+        const moveNext = (overrideType) => {
+          const activeType = overrideType || type;
+          if (step === 0 && activeType === TransactionType.LOAD) setStep(1); 
+          else setStep(prev => Math.min(prev + 1, 5));
+        };
+
+        useEffect(() => {
+          if (!isAutoFee || !amount || amount <= 0) { if (!amount) setFee(0); return; }
+          let f = 0;
+          if (type === TransactionType.SENDING) f = Math.ceil(amount / 1000) * 10;
+          else if (type === TransactionType.RECEIVING) f = amount <= 500 ? 10 : Math.ceil(amount / 1000) * 20;
+          else if (type === TransactionType.LOAD) {
+            // Remove 10rs fee logic for UFONE, only keep for other PACKAGE modes
+            f = (loadMode === LoadType.PACKAGE && sourceWallet !== MyWallet.UFONE_LOAD) ? 10 : 0;
+          }
+          else if (type === TransactionType.STOCK_BUY) f = Math.floor(amount / 1000) * 24;
+          setFee(f);
+        }, [type, amount, isAutoFee, loadMode, sourceWallet]);
+
+        const ChoiceButton = ({ label, value, current, onClick }) => (
+          React.createElement('button', {
+            type: "button", onClick: () => onClick(value),
+            className: `p-3 md:p-5 rounded-2xl border-2 transition-all duration-200 uppercase flex flex-col items-center justify-center text-center gap-1 min-h-[80px] shadow-sm ${current === value ? (isDark ? 'border-cyber bg-cyber/30 text-white shadow-cyber/20' : 'border-cyan-700 bg-cyan-100 text-cyan-900 shadow-cyan-200') : (isDark ? 'border-white/5 bg-white/5 text-slate-400 hover:border-white/20' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400')}`
+          }, 
+            React.createElement('span', { className: "text-lg md:text-2xl font-black leading-none tracking-tight w-full" }, label || value)
+          )
+        );
+
+        const otherWallets = useMemo(() => {
+          const primary = [MyWallet.JAZZCASH, MyWallet.EASYPAISA, MyWallet.JAZ_BUSINESS];
+          return Object.values(MyWallet).filter(w => {
+            const isPrimary = primary.includes(w);
+            const isLoad = w.toLowerCase().includes('load');
+            return !isPrimary && !isLoad;
+          });
+        }, []);
+
+        return React.createElement('div', { className: `p-6 md:p-10 cyber-glass rounded-[2.5rem] border-2 shadow-2xl relative overflow-hidden transition-all duration-500 no-print min-h-[500px] flex flex-col` },
+          step === 0 && React.createElement('div', { className: "animate-slide-in flex-1" },
+            React.createElement('div', { className: "mb-10" },
+              React.createElement('span', { className: `text-[10px] font-black uppercase tracking-[0.4em] opacity-40 mb-2 block` }, "COMMAND CENTER ENGINE"),
+              React.createElement('h3', { className: `text-4xl md:text-7xl font-black italic uppercase tracking-tighter leading-none ${isDark ? 'text-white' : 'text-slate-900'}` }, "SELECT ", React.createElement('span', { className: "text-cyber" }, "FLOW"))
+            ),
+            React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-4" },
+              [
+                { id: TransactionType.SENDING, icon: Send, label: 'SENDING' },
+                { id: TransactionType.RECEIVING, icon: Download, label: 'RECEIVE' },
+                { id: TransactionType.LOAD, icon: Zap, label: 'LOADS' },
+                { id: TransactionType.STOCK_BUY, icon: CreditCard, label: 'STOCK' }
+              ].map((t) => React.createElement('button', {
+                key: t.id, onClick: () => { setType(t.id); moveNext(t.id); },
+                className: `flex items-center gap-4 p-6 rounded-[2rem] border-2 transition-all active:scale-95 group ${isDark ? 'bg-white/5 border-white/5 text-white hover:border-cyber/30' : 'bg-white border-slate-200 text-slate-800 shadow-xl hover:border-cyan-500'}`
+              },
+                React.createElement('div', { className: "p-4 rounded-2xl bg-black/10 transition-transform group-hover:scale-110" }, React.createElement(t.icon, { className: "w-8 h-8 text-cyber" })),
+                React.createElement('span', { className: "text-2xl font-black tracking-widest uppercase" }, t.label)
+              ))
+            )
+          ),
+          
+          step === 1 && type === TransactionType.LOAD && React.createElement(StepWrapper, { title: "MODE", step, totalSteps: 5, isDark, onNext: () => loadMode && setStep(2), onBack: () => setStep(0), selections: { Flow: type } },
+            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+              [LoadType.LOAD, LoadType.PACKAGE].map((m) => React.createElement(ChoiceButton, { key: m, label: m, value: m, current: loadMode, onClick: (v) => { setLoadMode(v); setTimeout(() => setStep(2), 200); } }))
+            )
+          ),
+          
+          step === 1 && type !== TransactionType.LOAD && React.createElement(StepWrapper, { title: "SOURCE", step, totalSteps: 5, isDark, onNext: () => sourceWallet && sourceWallet !== "OTHER_NODE" && moveNext(), onBack: () => setStep(0), selections: { Flow: type } },
+            React.createElement('div', { className: "space-y-6" },
+              React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                [MyWallet.JAZZCASH, MyWallet.EASYPAISA, MyWallet.JAZ_BUSINESS].map((w) => React.createElement(ChoiceButton, { key: w, label: w, value: w, current: sourceWallet, onClick: (v) => { setSourceWallet(v); setTimeout(moveNext, 200); } })),
+                React.createElement(ChoiceButton, { label: "OTHER", value: "OTHER_NODE", current: (sourceWallet !== "" && ![MyWallet.JAZZCASH, MyWallet.EASYPAISA, MyWallet.JAZ_BUSINESS].includes(sourceWallet)) || sourceWallet === "OTHER_NODE" ? "OTHER_NODE" : "", onClick: () => setSourceWallet("OTHER_NODE") })
+              ),
+              (sourceWallet === "OTHER_NODE" || (sourceWallet !== "" && ![MyWallet.JAZZCASH, MyWallet.EASYPAISA, MyWallet.JAZ_BUSINESS].includes(sourceWallet))) && React.createElement('div', { className: "pt-4 animate-slide-in" },
+                React.createElement('select', { 
+                  value: sourceWallet === "OTHER_NODE" ? "" : sourceWallet, 
+                  onChange: (e) => { setSourceWallet(e.target.value); if(e.target.value) setTimeout(moveNext, 300); }, 
+                  className: `w-full p-6 rounded-[1.5rem] text-2xl font-black border-2 custom-select outline-none shadow-2xl ${isDark ? 'bg-slate-900 text-white border-cyber/50' : 'bg-white text-slate-800 border-slate-300'}` 
+                },
+                  React.createElement('option', { value: "", disabled: true }, "SELECT SOURCE WALLET"),
+                  otherWallets.map(w => React.createElement('option', { key: w, value: w, className: isDark ? "bg-slate-900 text-white" : "" }, w))
+                )
+              )
+            )
+          ),
+          
+          step === 2 && React.createElement(StepWrapper, { title: "TARGET", step, totalSteps: 5, isDark, onNext: () => (targetAccount || destinationWallet || (type === TransactionType.LOAD && sourceWallet)) && moveNext(), onBack: () => setStep(1), selections: { Flow: type === TransactionType.LOAD ? `${type} (${loadMode})` : type, Source: sourceWallet } },
+            type === TransactionType.STOCK_BUY ? React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+              [MyWallet.JAZZ_LOAD, MyWallet.ZONG_LOAD, MyWallet.TELENOR_LOAD].map((w) => React.createElement(ChoiceButton, { key: w, label: w, value: w, current: destinationWallet, onClick: (v) => { setDestinationWallet(v); setTimeout(moveNext, 200); } }))
+            ) : type === TransactionType.LOAD ? React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+              [MyWallet.JAZZ_LOAD, MyWallet.ZONG_LOAD, MyWallet.TELENOR_LOAD, MyWallet.UFONE_LOAD].map((w) => React.createElement(ChoiceButton, { key: w, label: w, value: w, current: sourceWallet, onClick: (v) => { setSourceWallet(v); setTimeout(moveNext, 200); } }))
+            ) : React.createElement('div', { className: "space-y-6" },
+              React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                [CustomerAccountType.JAZZCASH, CustomerAccountType.EASYPAISA].map((cat) => React.createElement(ChoiceButton, { key: cat, label: cat, value: cat, current: targetAccount, onClick: (v) => { setTargetAccount(v); setTimeout(moveNext, 200); } }))
+              ),
+              React.createElement('div', { className: "pt-4" },
+                React.createElement('select', { value: targetAccount, onChange: (e) => { setTargetAccount(e.target.value); if(e.target.value) setTimeout(moveNext, 300); }, className: `w-full p-6 rounded-[1.5rem] text-2xl font-black border-2 custom-select outline-none shadow-2xl ${isDark ? 'bg-slate-900 text-white border-cyber/50' : 'bg-white text-slate-800 border-slate-300'}` },
+                  React.createElement('option', { value: "", disabled: true }, "SELECT OTHER BANK NODE"),
+                  Object.values(CustomerAccountType).map(c => React.createElement('option', { key: c, value: c, className: isDark ? "bg-slate-900 text-white" : "" }, c))
+                )
+              )
+            )
+          ),
+          
+          step === 3 && React.createElement(StepWrapper, { title: "DETAILS", step, totalSteps: 5, isDark, onNext: () => amount && moveNext(), onBack: () => setStep(2), selections: { Flow: type === TransactionType.LOAD ? loadMode : type, Source: sourceWallet, Target: targetAccount || destinationWallet } },
+            React.createElement('div', { className: "space-y-10" },
+              (type === TransactionType.SENDING || type === TransactionType.RECEIVING) && React.createElement('div', null,
+                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-2 block" }, "CLIENT NAME"),
+                React.createElement('input', { type: "text", value: name, onChange: (e) => setName(e.target.value), placeholder: "FULL NAME", className: `w-full massive-input bg-transparent border-b-8 outline-none transition-all uppercase py-2 focus:border-cyber ${isDark ? 'border-white/10 text-white' : 'border-slate-300 text-slate-900'}` })
+              ),
+              (type === TransactionType.SENDING || type === TransactionType.LOAD) && React.createElement('div', null,
+                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-2 block" }, "MOBILE ID"),
+                React.createElement('input', { type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "03XXXXXXXXX", className: `w-full massive-input bg-transparent border-b-8 outline-none transition-all py-2 focus:border-cyber ${isDark ? 'border-white/10 text-white' : 'border-slate-300 text-slate-900'}` })
+              ),
+              React.createElement('div', null,
+                React.createElement('label', { className: "text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-2 block" }, "AMOUNT (RS)"),
+                React.createElement('input', { type: "number", value: amount, onFocus: (e) => e.target.select(), onChange: (e) => setAmount(e.target.value), placeholder: "0.00", className: `w-full massive-input bg-transparent border-b-8 outline-none transition-all py-2 focus:border-cyber ${isDark ? 'border-white/10 text-cyber' : 'border-slate-300 text-cyan-700'}` })
+              )
+            )
+          ),
+          
+          step === 4 && React.createElement(StepWrapper, { title: "REVIEW", step, totalSteps: 5, isDark, onNext: () => { 
+            const finalType = type === TransactionType.LOAD ? `${sourceWallet} ${loadMode}` : type;
+            onAdd({ 
+              type: finalType, 
+              sourceWallet, 
+              targetAccountType: targetAccount, 
+              destinationWallet, 
+              amount: Number(amount), 
+              phoneNumber: phone, 
+              customerName: name, 
+              fee: Number(fee), 
+              timestamp: Date.now() 
+            }); 
+            resetFormState(); 
+          }, onBack: () => setStep(3), selections: { Flow: type === TransactionType.LOAD ? loadMode : type, Source: sourceWallet, Target: targetAccount || destinationWallet, Amount: amount ? `Rs. ${Number(amount).toLocaleString()}` : "" } },
+            React.createElement('div', { className: "space-y-6" },
+              React.createElement('div', { className: `p-8 md:p-12 rounded-[2rem] border-4 relative shadow-2xl flex flex-col gap-6 animate-slide-in ${isDark ? 'bg-[#0f172a] border-white/10' : 'bg-white border-slate-200'}` },
+                React.createElement('div', { className: "flex items-center justify-between border-b-2 border-dotted border-white/20 pb-6" },
+                  React.createElement('div', { className: "flex items-center gap-4" },
+                    React.createElement(ClipboardCheck, { className: "w-8 h-8 text-cyber" }),
+                    React.createElement('div', { className: "flex flex-col" },
+                      React.createElement('span', { className: "text-xl font-black uppercase tracking-tighter" }, "FINAL AUDIT"),
+                      React.createElement('span', { className: "text-[8px] font-black opacity-40 uppercase tracking-[0.2em]" }, "VAULT COMMITTAL PENDING")
+                    )
+                  )
+                ),
+                React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-y-6" },
+                  [
+                    { label: "Client", value: name || "WALK-IN", icon: User },
+                    { label: "ID/Phone", value: phone || "NONE", icon: Phone },
+                    { label: "Origin", value: sourceWallet, icon: MapPin },
+                    { label: "Target", value: targetAccount || destinationWallet || loadMode || "DIRECT", icon: Hash }
+                  ].map((item, idx) => React.createElement('div', { key: idx, className: "flex items-start gap-3" },
+                    React.createElement(item.icon, { className: "w-4 h-4 text-cyber opacity-40 mt-1" }),
+                    React.createElement('div', { className: "flex flex-col" },
+                      React.createElement('span', { className: "text-[8px] font-black uppercase opacity-40" }, item.label),
+                      React.createElement('span', { className: "text-base font-black uppercase truncate" }, item.value)
+                    )
+                  ))
+                ),
+                React.createElement('div', { className: `mt-2 p-6 rounded-[1.5rem] text-center ${isDark ? 'bg-cyber/10' : 'bg-slate-50 border border-slate-200'}` },
+                  React.createElement('span', { className: "text-[10px] font-black uppercase opacity-60" }, "TOTAL PAYOUT"),
+                  React.createElement('div', { className: `text-5xl md:text-6xl font-black ${isDark ? 'text-cyber' : 'text-cyan-900'}` }, `Rs. ${Number(amount).toLocaleString()}`)
+                )
+              ),
+              React.createElement('div', { className: `p-3 px-8 rounded-2xl border-2 flex items-center justify-between shadow-lg ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-300'}` },
+                React.createElement('div', { className: "flex items-center gap-6" },
+                  React.createElement('span', { className: "text-[10px] font-black uppercase opacity-50 tracking-widest" }, "SERVICE FEE"),
+                  React.createElement('div', { className: "flex items-center gap-4" },
+                    React.createElement('input', { type: "number", value: fee, onFocus: (e) => e.target.select(), onChange: (e) => { setIsAutoFee(false); setFee(Number(e.target.value)); }, className: `bg-transparent font-black text-3xl w-24 outline-none ${isDark ? 'text-cyber' : 'text-cyan-900'}` }),
+                    React.createElement('button', { type: "button", onClick: () => setIsAutoFee(!isAutoFee), className: `text-[10px] font-black px-4 py-2 rounded-full transition-all active:scale-90 ${isDark ? 'bg-cyber text-obsidian' : 'bg-cyan-600 text-white'}` }, isAutoFee ? 'AUTO-ON' : 'MANUAL')
+                  )
+                )
+              )
+            )
+          )
+        );
+      };
+
+      const Ledger = ({ transactions, onBulkDelete, onDeleteSingle, theme }) => {
+        const [searchQuery, setSearchQuery] = useState('');
+        const [selectedIds, setSelectedIds] = useState(new Set());
+        const [activeFilter, setActiveFilter] = useState('ALL');
+        const isDark = theme === 'dark';
+        
+        const formatTime = (ts) => new Intl.DateTimeFormat('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true }).format(ts);
+        const formatDate = (ts) => new Intl.DateTimeFormat('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }).format(ts);
+        
+        const filteredTransactions = useMemo(() => {
+          return transactions.filter(tx => {
+            const query = searchQuery.toLowerCase();
+            const matchesQuery = (
+              tx.type.toLowerCase().includes(query) ||
+              (tx.customerName || '').toLowerCase().includes(query) ||
+              (tx.phoneNumber || '').toLowerCase().includes(query) ||
+              (tx.amount || '').toString().includes(query) ||
+              (tx.sourceWallet || '').toLowerCase().includes(query)
+            );
+            const matchesFilter = activeFilter === 'ALL' || tx.type.includes(activeFilter);
+            return matchesQuery && matchesFilter;
+          });
+        }, [transactions, searchQuery, activeFilter]);
+
+        const toggleSelection = (id) => {
+          setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+          });
+        };
+
+        const toggleAll = () => {
+          setSelectedIds(prev => (prev.size === filteredTransactions.length && filteredTransactions.length > 0) ? new Set() : new Set(filteredTransactions.map(t => t.id)));
+        };
+
+        const handleMassDelete = () => {
+          if (selectedIds.size === 0) return;
+          if (window.confirm(`Permanently delete ${selectedIds.size} records?`)) {
+            onBulkDelete(Array.from(selectedIds));
+            setSelectedIds(new Set());
+          }
+        };
+
+        const handlePrint = () => { 
+          if (filteredTransactions.length === 0) return alert("Nothing to print.");
+          window.print(); 
+        };
+
+        return React.createElement('div', { className: "cyber-glass rounded-[2rem] border-2 overflow-hidden shadow-2xl relative" },
+          React.createElement('div', { className: "p-6 md:p-10 border-b-2 flex flex-col gap-6 no-print" },
+            React.createElement('div', { className: "flex flex-col md:flex-row justify-between items-start md:items-center gap-4" },
+              React.createElement('h2', { className: `text-2xl md:text-5xl font-black italic uppercase tracking-tighter ${isDark ? 'text-white' : 'text-slate-900'}` }, "VAULT ", React.createElement('span', { className: "text-cyber" }, "ARCHIVE")),
+              React.createElement('div', { className: "flex gap-2 w-full md:w-auto" },
+                selectedIds.size > 0 && React.createElement('button', { type: "button", onClick: handleMassDelete, className: "flex-1 md:flex-none p-4 bg-red-600/20 rounded-2xl border border-red-500/30 text-red-500" }, React.createElement(Trash2, { className: "w-6 h-6" })),
+                React.createElement('button', { type: "button", onClick: handlePrint, className: `flex-[2] md:flex-none p-4 rounded-2xl border-2 flex items-center justify-center gap-3 transition-all ${isDark ? 'bg-cyber text-obsidian border-cyber' : 'bg-cyan-600 text-white border-cyan-700'}` }, React.createElement(Printer, { className: "w-6 h-6" }), React.createElement('span', { className: "font-black uppercase text-sm" }, "Print View"))
+              )
+            ),
+            React.createElement('div', { className: "space-y-4" },
+              React.createElement('div', { className: "relative" },
+                React.createElement('div', { className: "absolute left-6 top-1/2 -translate-y-1/2 opacity-30" }, React.createElement(Search, { className: "w-6 h-6" })),
+                React.createElement('input', { type: "text", placeholder: "SEARCH NAME, PHONE, OR RS AMOUNT...", value: searchQuery, onChange: (e) => setSearchQuery(e.target.value), className: `w-full p-5 pl-16 rounded-[1.5rem] border-2 font-black outline-none ${isDark ? 'bg-white/5 text-white focus:border-cyber' : 'bg-slate-50 border-slate-300'}` }),
+                searchQuery && React.createElement('button', { onClick: () => setSearchQuery(''), className: "absolute right-6 top-1/2 -translate-y-1/2 text-cyber" }, React.createElement(X, { className: "w-6 h-6" }))
+              ),
+              React.createElement('div', { className: "flex items-center gap-2 overflow-x-auto no-scrollbar pb-2" },
+                ['ALL', 'Sending', 'Receiving', 'LOAD', 'PACKAGE', 'STOCK'].map(f => React.createElement('button', { key: f, onClick: () => setActiveFilter(f), className: `px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-2 ${activeFilter === f ? (isDark ? 'bg-cyber text-obsidian' : 'bg-cyan-600 text-white') : (isDark ? 'bg-white/5 text-white/50' : 'bg-white text-slate-400')}` }, f))
+              )
+            )
+          ),
+          React.createElement('div', { className: "p-4 md:p-8 no-print" },
+            filteredTransactions.length === 0 ? React.createElement('div', { className: "py-32 text-center opacity-20" }, React.createElement('p', { className: "text-2xl font-black uppercase" }, "Database Empty"))
+              : React.createElement('div', { className: "space-y-4" },
+                React.createElement('div', { className: "flex items-center gap-4 px-6" },
+                  React.createElement('button', { type: "button", onClick: toggleAll, className: `p-2 rounded-xl ${selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0 ? 'bg-cyber' : 'bg-white/5 border-2 border-white/10'}` },
+                    selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0 ? React.createElement(CheckSquare, { className: "w-6 h-6 text-obsidian" }) : React.createElement(Square, { className: "w-6 h-6 opacity-30 text-white" })
+                  ),
+                  React.createElement('span', { className: "text-[10px] font-black uppercase tracking-[0.3em] opacity-40" }, `VAULT SELECTION: ${selectedIds.size} / ${filteredTransactions.length}`)
+                ),
+                filteredTransactions.map((tx) => React.createElement('div', { key: tx.id, className: `p-6 md:p-8 border-2 rounded-[2.5rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6 transition-all ${selectedIds.has(tx.id) ? (isDark ? 'bg-cyber/10 border-cyber shadow-lg' : 'bg-cyan-50 border-cyan-400 shadow-md') : 'bg-white/5 border-white/5'}` },
+                  React.createElement('div', { className: "flex items-center gap-6 w-full md:w-auto" },
+                    React.createElement('button', { type: "button", onClick: () => toggleSelection(tx.id) },
+                      selectedIds.has(tx.id) ? React.createElement(CheckCircle2, { className: "w-8 h-8 text-cyber" }) : React.createElement(StatusCircle, { className: "w-8 h-8 border-white/10 text-white/20" })
+                    ),
+                    React.createElement('div', null,
+                      React.createElement('div', { className: "text-xl font-black uppercase text-white tracking-tight" }, tx.customerName || 'WALK-IN'),
+                      React.createElement('div', { className: "text-[10px] opacity-40 uppercase tracking-widest font-black flex items-center gap-2" }, React.createElement(Calendar, { className: "w-3 h-3" }), `${formatDate(tx.timestamp)} • ${formatTime(tx.timestamp)}`),
+                      React.createElement('div', { className: "text-[10px] text-cyber font-black uppercase tracking-widest mt-1" }, `${tx.type} • ${tx.phoneNumber || 'N/A'}`)
+                    )
+                  ),
+                  React.createElement('div', { className: "flex items-center justify-between w-full md:w-auto gap-10" },
+                    React.createElement('div', { className: "text-left md:text-right" },
+                      React.createElement('div', { className: `text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}` }, `Rs. ${tx.amount.toLocaleString()}`),
+                      React.createElement('div', { className: "text-[10px] font-black opacity-60 uppercase tracking-widest" }, `${tx.sourceWallet} • FEE: ${tx.fee}`)
+                    ),
+                    React.createElement('div', { className: "flex gap-3" },
+                      React.createElement('button', { type: "button", onClick: () => window.confirm('Delete record?') && onDeleteSingle(tx.id), className: "p-4 text-red-500 hover:bg-red-500/10 rounded-2xl" }, React.createElement(Trash2, { className: "w-6 h-6" }))
+                    )
+                  )
+                ))
+              )
+          ),
+          React.createElement('div', { className: "hidden print:block print-force-visible px-4 py-6" },
+            React.createElement('div', { className: "text-center mb-6 pb-4 border-b-2 border-black" }, React.createElement('h1', { className: "text-2xl font-black uppercase" }, "MUGHAL VAULT ARCHIVE")),
+            React.createElement('table', { className: "print-table" },
+              React.createElement('thead', null, React.createElement('tr', null, ['TIMESTAMP', 'TYPE', 'CLIENT', 'MOBILE ID', 'AMOUNT', 'FEE'].map(h => React.createElement('th', { key: h }, h)))),
+              React.createElement('tbody', null, (selectedIds.size > 0 ? transactions.filter(t => selectedIds.has(t.id)) : filteredTransactions).map(tx => React.createElement('tr', { key: tx.id }, React.createElement('td', null, formatDate(tx.timestamp) + ' ' + formatTime(tx.timestamp)), React.createElement('td', null, tx.type), React.createElement('td', null, tx.customerName || 'WALK-IN'), React.createElement('td', null, tx.phoneNumber || 'N/A'), React.createElement('td', null, `${tx.amount.toLocaleString()}`), React.createElement('td', null, tx.fee))))
+            )
+          )
+        );
+      };
+
+      const Settings = ({ openingBalances, setOpeningBalances, onWipeAll, theme }) => {
+        const isDark = theme === 'dark';
+        const fields = [
+          { label: 'Cash In Hands', key: 'cashInHands' }, { label: 'Profit Account', key: 'profit' },
+          { label: 'Jazz Business', key: 'jazzBusiness' }, { label: 'EasyPaisa Wallet', key: 'easyPaisa' },
+          { label: 'JazzCash Wallet', key: 'jazzCash' }, { label: 'UBL Bank', key: 'ubl' },
+          { label: 'Meezan Bank 1', key: 'meezan1' }, { label: 'Meezan Bank 2', key: 'meezan2' },
+          { label: 'Mashrek', key: 'mashrek' }, { label: 'Jazz Load Stock', key: 'jazzLoad' },
+          { label: 'Zong Load Stock', key: 'zongLoad' }, { label: 'Telenor Load Stock', key: 'telenorLoad' },
+          { label: 'Nadra Credit', key: 'nadra' }
+        ];
+
+        return React.createElement('div', { className: "space-y-6 pb-32 no-print" },
+          React.createElement('div', { className: `p-10 rounded-[3rem] border-2 ${isDark ? 'bg-slate-800/40 border-slate-700' : 'bg-white border-slate-300 shadow-2xl'}` },
+            React.createElement('h2', { className: `text-3xl font-black uppercase mb-10 ${isDark ? 'text-white' : 'text-slate-900'}` }, "CALIBRATION"),
+            React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" },
+              fields.map((f) => React.createElement('div', { key: f.key, className: "space-y-1" },
+                React.createElement('label', { className: `text-[10px] font-black uppercase tracking-widest opacity-50` }, f.label),
+                React.createElement('input', { type: "number", value: openingBalances[f.key] || 0, onFocus: (e) => e.target.select(), onChange: (e) => setOpeningBalances({ ...openingBalances, [f.key]: Number(e.target.value) || 0 }), className: `w-full p-5 rounded-2xl border-2 font-black transition-all outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-cyber' : 'bg-white border-slate-300 text-slate-900 shadow-inner'}` })
+              ))
+            )
+          ),
+          React.createElement('button', { 
+            type: "button", 
+            onClick: onWipeAll, 
+            className: "w-full p-8 bg-red-600 text-white font-black text-2xl rounded-3xl active:scale-95 hover:bg-red-700 border-b-8 border-red-900 shadow-2xl cursor-pointer" 
+          }, "WIPE SYSTEM CACHE")
+        );
+      };
+
+      const App = () => {
+        const [theme, setTheme] = useState(() => localStorage.getItem('mobipay_theme') || 'dark');
+        const [activeTab, setActiveTab] = useState('dashboard');
+        
+        const [transactions, setTransactions] = useState(() => {
+          try { return JSON.parse(localStorage.getItem('mobipay_transactions') || '[]'); } catch(e) { return []; }
+        });
+        
+        const [openingBalances, setOpeningBalances] = useState(() => {
+          try { return JSON.parse(localStorage.getItem('mobipay_opening_balances') || JSON.stringify(DEFAULT_BALANCES)); } catch(e) { return DEFAULT_BALANCES; }
+        });
+
+        useEffect(() => { document.body.className = theme; localStorage.setItem('mobipay_theme', theme); }, [theme]);
+        useEffect(() => { localStorage.setItem('mobipay_transactions', JSON.stringify(transactions)); }, [transactions]);
+        useEffect(() => { localStorage.setItem('mobipay_opening_balances', JSON.stringify(openingBalances)); }, [openingBalances]);
+
+        const bulkDelete = useCallback((ids) => {
+          setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+        }, []);
+
+        const deleteSingle = useCallback((id) => {
+          setTransactions(prev => prev.filter(t => t.id !== id));
+        }, []);
+
+        const handleWipeAll = useCallback(() => {
+          if (window.confirm('WARNING: THIS WILL PERMANENTLY ERASE ALL SALES RECORDS. CONTINUE?')) {
+            window.localStorage.clear();
+            window.location.reload();
+          }
+        }, []);
+
+        const currentBalances = useMemo(() => {
+          const bal = { ...openingBalances };
+          let dailyProfit = 0;
+          
+          const walletKeyMap = {
+            [MyWallet.JAZZ_LOAD]: 'jazzLoad', 
+            [MyWallet.ZONG_LOAD]: 'zongLoad', 
+            [MyWallet.TELENOR_LOAD]: 'telenorLoad',
+            [MyWallet.UFONE_LOAD]: 'jazzBusiness', // Redirected to Jazz Business
+            [MyWallet.NADRA]: 'nadra', 
+            [MyWallet.MEEZAN_1]: 'meezan1', 
+            [MyWallet.MEEZAN_2]: 'meezan2',
+            [MyWallet.UBL]: 'ubl', 
+            [MyWallet.JAZ_BUSINESS]: 'jazzBusiness', 
+            [MyWallet.JAZZCASH]: 'jazzCash',
+            [MyWallet.EASYPAISA]: 'easyPaisa', 
+            [MyWallet.MASHREK]: 'mashrek', 
+            [MyWallet.PROFIT]: 'profit',
+            [MyWallet.CASH_IN_HANDS]: 'cashInHands',
+          };
+
+          transactions.forEach(tx => {
+            const sourceKey = walletKeyMap[tx.sourceWallet];
+            if (!sourceKey) return;
+            dailyProfit += (tx.fee || 0);
+
+            if (tx.type.includes('Sending')) { 
+              bal[sourceKey] -= tx.amount; 
+              bal.cashInHands += (tx.amount + (tx.fee || 0)); 
+            }
+            else if (tx.type.includes('Receiving')) { 
+              bal[sourceKey] += tx.amount; 
+              bal.cashInHands -= tx.amount; 
+              bal.cashInHands += (tx.fee || 0); 
+            }
+            else if (tx.type.includes('Balance/Package') || tx.type.includes('LOAD') || tx.type.includes('PACKAGE')) { 
+              bal[sourceKey] -= tx.amount; 
+              bal.cashInHands += (tx.amount + (tx.fee || 0)); 
+            }
+            else if (tx.type.includes('Stock Buy')) { 
+              // Source wallet (Bank/JazzBiz) pays
+              bal[sourceKey] -= tx.amount; 
+              // Destination wallet (Stock bucket) increases
+              if (tx.destinationWallet) { 
+                const destKey = walletKeyMap[tx.destinationWallet]; 
+                if (destKey) bal[destKey] += tx.amount; 
+              } 
+            }
+          });
+          return { balances: bal, dailyProfit };
+        }, [transactions, openingBalances]);
+
+        return React.createElement('div', { className: `min-h-screen pb-40 transition-colors duration-300` },
+          React.createElement('header', { className: `p-3 flex justify-between items-center sticky top-0 z-50 backdrop-blur-xl border-b-2 no-print ${theme === 'dark' ? 'bg-obsidian/80 border-white/5' : 'bg-white/95 border-slate-200'}` },
+            React.createElement('div', { className: "flex items-center gap-3" },
+              React.createElement('div', { className: `p-2 rounded-xl bg-cyber shadow-lg` }, React.createElement(Zap, { className: `w-6 h-6 text-obsidian` })),
+              React.createElement('h1', { className: `text-xl md:text-3xl font-black italic uppercase tracking-tighter ${theme === 'dark' ? 'text-cyber' : 'text-slate-900'}` }, "MUGHAL CORE")
+            ),
+            React.createElement('button', { type: "button", onClick: () => setTheme(theme === 'dark' ? 'light' : 'dark'), className: "p-3 rounded-xl border-2 border-transparent bg-white/5 shadow-xl transition-transform active:scale-90" }, theme === 'dark' ? React.createElement(Sun, { className: "w-6 h-6" }) : React.createElement(Moon, { className: "w-6 h-6" }))
+          ),
+          React.createElement('main', { className: "max-w-[1700px] mx-auto px-4 py-8" },
+            activeTab === 'dashboard' && React.createElement('div', { className: "flex flex-col xl:flex-row gap-10" },
+              React.createElement('div', { className: "w-full xl:w-7/12" }, React.createElement(TransactionForm, { onAdd: (tx) => setTransactions(prev => [{ ...tx, id: Date.now().toString() }, ...prev]), theme })),
+              React.createElement('div', { className: "w-full xl:w-5/12" }, React.createElement(Dashboard, { balances: currentBalances.balances, profit: currentBalances.dailyProfit, theme }))
+            ),
+            activeTab === 'ledger' && React.createElement(Ledger, { transactions, onBulkDelete: bulkDelete, onDeleteSingle: deleteSingle, theme }),
+            activeTab === 'settings' && React.createElement(Settings, { openingBalances, setOpeningBalances, onWipeAll: handleWipeAll, theme })
+          ),
+          React.createElement('nav', { className: `fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[100] p-1.5 cyber-glass rounded-[2.5rem] border-2 shadow-2xl no-print` },
+            React.createElement('div', { className: "flex items-center gap-1.5" },
+              [
+                { id: 'dashboard', icon: LayoutDashboard, label: 'ENGINE' },
+                { id: 'ledger', icon: History, label: 'VAULT' },
+                { id: 'settings', icon: SettingsIcon, label: 'SYNC' }
+              ].map((btn) => React.createElement('button', {
+                key: btn.id, onClick: () => setActiveTab(btn.id),
+                className: `flex-1 flex flex-col items-center justify-center py-4 rounded-[2rem] transition-all active:scale-95 ${activeTab === btn.id ? (theme === 'dark' ? 'bg-cyber text-obsidian scale-105 shadow-md' : 'bg-cyan-600 text-white scale-105 shadow-md') : 'text-slate-500 hover:text-white/20'}`
+              },
+                React.createElement(btn.icon, { className: `w-6 h-6 ${activeTab === btn.id ? 'animate-bounce' : ''}` }),
+                React.createElement('span', { className: "text-[9px] font-black uppercase mt-1 tracking-widest" }, btn.label)
+              ))
+            )
+          )
+        );
+      };
+
+      const root = createRoot(document.getElementById('root'));
+      root.render(React.createElement(App));
+    </script>
+  </body>
+</html>
